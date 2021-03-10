@@ -1,82 +1,44 @@
-import requests
-from pprint import pprint
-from bs4 import BeautifulSoup
-import re
-from time import sleep
+from flask import Flask, render_template, redirect, url_for, send_from_directory
+from flask_wtf import FlaskForm
+from wtforms import SubmitField, StringField, PasswordField, IntegerField, SelectField
+from wtforms.validators import DataRequired, Email, URL, NumberRange
+from flask_bootstrap import Bootstrap
+from FindContacts import *
 
-url_head = "https://www.kijiji.ca"
-urls = []
-numbers = []
-total = 0
-kijiji_head = "https://www.kijiji.ca/b-achat-et-vente/ville-de-montreal/"
-kijiji_tail = "/k0c10l1700281?radius=20.0&address=Chinatown%2C+Ville-Marie%2C+Montreal%2C+QC&ll=45.507693,-73.560141&rb=true"
-
-HEADER = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+app = Flask(__name__)
+Bootstrap(app)
+app.config["SECRET_KEY"] = "8BYkEfBA6O6donzWlSihBXox7C0sKR6b"
 
 
-def find_hitpoints(hitpoint):
-    while urls == []:
-        global total
-        response = requests.get(hitpoint, headers=HEADER)
-        pprint(response)
-        soup = BeautifulSoup(response.text, "html.parser")
-        info = soup.find_all(class_="info-container")
-        for data in info:
-            urls.append(url_head + str(data.find(name="a")).split('href="')[1].strip().split('">')[0])
-        total = len(urls)
-        if urls == []:
-            sleep(60)
+class SearchForm(FlaskForm):
+    search_string = StringField(label="Query", validators=[DataRequired()])
+    number_of_contacts = IntegerField(label="Number Of Results", validators=[DataRequired(), NumberRange()])
+    submit = SubmitField("Search")
 
 
-def extractNum(string):
-    num = ''
-    finalOpt = ""
-    emailRegEx = re.compile("\D*([2-9]\d{2})(\D*)([2-9]\d{2})(\D*)(\d{4})\D*")
-    m = emailRegEx.search(string)
-    if m:
-        num = m.group(0)
-    for ch in num:
-        if ch.isnumeric():
-            finalOpt += ch
-    return finalOpt
+@app.route('/', methods=['GET', 'POST'])
+def home():
+    my_form = SearchForm()
+    if my_form.validate_on_submit():
+        return redirect(url_for("loading",target=my_form.number_of_contacts.data,keyword=my_form.search_string.data))
+    return render_template("home.html", form=my_form)
 
 
-def getNumber(url):
-    text = "none"
-    response = requests.get(url, headers=HEADER)
-    soup = BeautifulSoup(response.text, "html.parser")
-    try:
-        text = (str(soup.text).split('Description')[1].strip())
-    except TypeError:
-        text = str(soup.find(id="MainContainer"))
-    except IndexError:
-        pass
-    return (extractNum(text))
-
-
-def start_collecting(keyword, page_num):
-    hitpoint = kijiji_head + "/page-" + str(page_num) + kijiji_tail
-    find_hitpoints(hitpoint)
-    pprint(urls)
-    at = 0
-    for url in urls:
-        print(f"Im at {at}/{total}")
-        num = getNumber(url)
-        at += 1
-        if len(num) > 9:
-            data = {
-                "num": num,
-                "url": url
-            }
-            numbers.append(data)
-
-
-def findContacts(keyword, target):
-    while len(numbers) < target:
-        page_number = 0
+@app.route('/searching/<keyword>/<target>', methods=['GET', 'POST'])
+def loading(keyword, target):
+    page_number = 1
+    while len(numbers) < int(target):
+        keyword.replace("", "-")
         start_collecting(keyword, page_number)
         page_number += 1
-        pprint(numbers)
+        DataFrame(numbers).to_csv("static/files/humans.csv")
+    return render_template("download.html")
 
-findContacts("wholesale",10)
+
+@app.route('/download')
+def send_file():
+    return send_from_directory("static/files/", filename='humans.csv')
+
+
+if __name__ == '__main__':
+    app.run(debug=True)

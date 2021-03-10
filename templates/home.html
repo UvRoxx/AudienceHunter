@@ -1,0 +1,24 @@
+{% extends "bootstrap/base.html"%}
+{% import 'bootstrap/wtf.html' as wtf%}
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="static/css/styles.css">
+<style>
+    body{
+    text-align:center;
+    background:#3D3D90;
+    font-family:courier;
+    color:white;
+    }
+
+</style>
+{% endblock%}
+{% block title%}Property Garden{% endblock %}
+{% block content%}
+<div class="container">
+    <img id="logo" src="../static/images/logo.svg" alt="property-garden-logo">
+    <h1>Welcome To User Hunter</h1>
+    <br>
+    {{ wtf.quick_form(form) }}
+</div>
+{% endblock %}
